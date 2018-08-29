@@ -15,6 +15,9 @@
     "tasks",
     "tests"
   ],
-  "dependencies": {},
+  "dependencies": {
+    "uv-cy-GB-theme": "UniversalViewer/uv-cy-GB-theme",
+    "uv-en-GB-theme": "JBPressac/uv-en-GB-theme"
+  },
   "devDependencies": {}
 }
