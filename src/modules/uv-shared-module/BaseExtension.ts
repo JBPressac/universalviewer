@@ -494,7 +494,12 @@ export class BaseExtension implements IExtension {
             let terms: string | null = this.helper.getLicense();
             
             if (!terms) {
-                terms = this.helper.getAttribution();
+                const requiredStatement: Manifold.ILabelValuePair | null = this.helper.getRequiredStatement();
+
+                if (requiredStatement && requiredStatement.value) {
+                    terms = requiredStatement.value;
+                }
+                
             }
             
             if (terms) {
@@ -509,6 +514,12 @@ export class BaseExtension implements IExtension {
         $.subscribe(BaseEvents.TOGGLE_FULLSCREEN, () => {
             $('#top').focus();
             this.component.isFullScreen = !this.component.isFullScreen;
+
+            if (this.component.isFullScreen) {
+                this.$element.addClass('fullscreen');
+            } else {
+                this.$element.removeClass('fullscreen');
+            }
 
             this.fire(BaseEvents.TOGGLE_FULLSCREEN,
                 {
@@ -831,7 +842,6 @@ export class BaseExtension implements IExtension {
         return this.data.config.options.seeAlsoEnabled !== false;
     }
 
-
     getShareUrl(): string | null {
         // If not embedded on an external domain (this causes CORS errors when fetching parent url)
         if (!this.data.embedded) {
@@ -1140,6 +1150,14 @@ export class BaseExtension implements IExtension {
 
     isDesktopMetric(): boolean {
         return this.metric.toString() === MetricType.DESKTOP.toString();
+    }
+
+    isWatchMetric(): boolean {
+        return this.metric.toString() === MetricType.WATCH.toString();
+    }
+
+    isCatchAllMetric(): boolean {
+        return this.metric.toString() === MetricType.NONE.toString();
     }
 
     // todo: use redux in manifold to get reset state

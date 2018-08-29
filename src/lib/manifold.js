@@ -1,4 +1,4 @@
-// @iiif/manifold v1.2.26 https://github.com/iiif-commons/manifold#readme
+// @iiif/manifold v1.2.32 https://github.com/iiif-commons/manifold#readme
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.iiifmanifold = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 (function (global){
 
@@ -242,34 +242,51 @@ var Manifold;
             // get the height and width of the image resource if available
             this._parseDimensions(canvas);
         }
+        ExternalResource.prototype._getImageServiceDescriptor = function (services) {
+            var infoUri = null;
+            for (var i = 0; i < services.length; i++) {
+                var service = services[i];
+                var id = service.id;
+                if (!id.endsWith('/')) {
+                    id += '/';
+                }
+                if (manifesto.Utils.isImageProfile(service.getProfile())) {
+                    infoUri = id + 'info.json';
+                }
+            }
+            return infoUri;
+        };
         ExternalResource.prototype._getDataUri = function (canvas) {
             var content = canvas.getContent();
             var images = canvas.getImages();
+            var infoUri = null;
+            // presentation 3
             if (content && content.length) {
                 var annotation = content[0];
                 var annotationBody = annotation.getBody();
                 if (annotationBody.length) {
+                    var body = annotationBody[0];
+                    var services = body.getServices();
+                    if (services.length) {
+                        infoUri = this._getImageServiceDescriptor(services);
+                        if (infoUri) {
+                            return infoUri;
+                        }
+                    }
+                    // no image services. return the image id
                     return annotationBody[0].id;
                 }
                 return null;
             }
             else if (images && images.length) {
-                var infoUri = null;
                 var firstImage = images[0];
                 var resource = firstImage.getResource();
                 var services = resource.getServices();
                 if (services.length) {
-                    for (var i = 0; i < services.length; i++) {
-                        var service = services[i];
-                        var id = service.id;
-                        if (!id.endsWith('/')) {
-                            id += '/';
-                        }
-                        if (manifesto.Utils.isImageProfile(service.getProfile())) {
-                            infoUri = id + 'info.json';
-                        }
+                    infoUri = this._getImageServiceDescriptor(services);
+                    if (infoUri) {
+                        return infoUri;
                     }
-                    return infoUri;
                 }
                 // no image services. return the image id
                 return resource.id;
@@ -445,9 +462,10 @@ var Manifold;
             return null;
         };
         Helper.prototype.getAttribution = function () {
+            console.warn('getAttribution will be deprecated, use getRequiredStatement instead.');
             var attribution = this.manifest.getAttribution();
             if (attribution) {
-                return Manifesto.TranslationCollection.getValue(attribution, this.options.locale);
+                return Manifesto.LanguageMap.getValue(attribution, this.options.locale);
             }
             return null;
         };
@@ -519,7 +537,7 @@ var Manifold;
         Helper.prototype.getDescription = function () {
             var description = this.manifest.getDescription();
             if (description) {
-                return Manifesto.TranslationCollection.getValue(description, this.options.locale);
+                return Manifesto.LanguageMap.getValue(description, this.options.locale);
             }
             return null;
         };
@@ -529,7 +547,7 @@ var Manifold;
         Helper.prototype.getLabel = function () {
             var label = this.manifest.getLabel();
             if (label) {
-                return Manifesto.TranslationCollection.getValue(label, this.options.locale);
+                return Manifesto.LanguageMap.getValue(label, this.options.locale);
             }
             return null;
         };
@@ -561,15 +579,15 @@ var Manifold;
                 manifestGroup.addMetadata(manifestMetadata, true);
             }
             if (this.manifest.getDescription().length) {
-                var metadataItem = new Manifesto.MetadataItem(this.options.locale);
-                metadataItem.label = [new Manifesto.Translation("description", this.options.locale)];
+                var metadataItem = new Manifesto.LabelValuePair(this.options.locale);
+                metadataItem.label = [new Manifesto.Language("description", this.options.locale)];
                 metadataItem.value = this.manifest.getDescription();
                 metadataItem.isRootLevel = true;
                 manifestGroup.addItem(metadataItem);
             }
             if (this.manifest.getAttribution().length) {
-                var metadataItem = new Manifesto.MetadataItem(this.options.locale);
-                metadataItem.label = [new Manifesto.Translation("attribution", this.options.locale)];
+                var metadataItem = new Manifesto.LabelValuePair(this.options.locale);
+                metadataItem.label = [new Manifesto.Language("attribution", this.options.locale)];
                 metadataItem.value = this.manifest.getAttribution();
                 metadataItem.isRootLevel = true;
                 manifestGroup.addItem(metadataItem);
@@ -580,7 +598,7 @@ var Manifold;
                     label: "license",
                     value: (options && options.licenseFormatter) ? options.licenseFormatter.format(license) : license
                 };
-                var metadataItem = new Manifesto.MetadataItem(this.options.locale);
+                var metadataItem = new Manifesto.LabelValuePair(this.options.locale);
                 metadataItem.parse(item);
                 metadataItem.isRootLevel = true;
                 manifestGroup.addItem(metadataItem);
@@ -590,7 +608,7 @@ var Manifold;
                     label: "logo",
                     value: '<img src="' + this.manifest.getLogo() + '"/>'
                 };
-                var metadataItem = new Manifesto.MetadataItem(this.options.locale);
+                var metadataItem = new Manifesto.LabelValuePair(this.options.locale);
                 metadataItem.parse(item);
                 metadataItem.isRootLevel = true;
                 manifestGroup.addItem(metadataItem);
@@ -602,6 +620,16 @@ var Manifold;
             else {
                 return metadataGroups;
             }
+        };
+        Helper.prototype.getRequiredStatement = function () {
+            var requiredStatement = this.manifest.getRequiredStatement();
+            if (requiredStatement) {
+                return {
+                    label: requiredStatement.getLabel(),
+                    value: requiredStatement.getValue()
+                };
+            }
+            return null;
         };
         Helper.prototype._parseMetadataOptions = function (options, metadataGroups) {
             // get sequence metadata
@@ -650,12 +678,10 @@ var Manifold;
                 rangeGroup.addMetadata(rangeMetadata);
                 metadataGroups.push(rangeGroup);
             }
-            if (range.parentRange) {
+            else if (range.parentRange) {
                 return this._getRangeMetadata(metadataGroups, range.parentRange);
             }
-            else {
-                return metadataGroups;
-            }
+            return metadataGroups;
         };
         Helper.prototype.getMultiSelectState = function () {
             if (!this._multiSelectState) {
@@ -668,6 +694,21 @@ var Manifold;
         Helper.prototype.getCurrentRange = function () {
             if (this.rangeId) {
                 return this.getRangeById(this.rangeId);
+            }
+            return null;
+        };
+        Helper.prototype.getPosterCanvas = function () {
+            return this.manifest.getPosterCanvas();
+        };
+        Helper.prototype.getPosterImage = function () {
+            var posterCanvas = this.getPosterCanvas();
+            if (posterCanvas) {
+                var content = posterCanvas.getContent();
+                if (content && content.length) {
+                    var anno = content[0];
+                    var body = anno.getBody();
+                    return body[0].id;
+                }
             }
             return null;
         };
@@ -1138,6 +1179,16 @@ var Manifold;
 })(Manifold || (Manifold = {}));
 
 
+
+var Manifold;
+(function (Manifold) {
+    var ILabelValuePair = /** @class */ (function () {
+        function ILabelValuePair() {
+        }
+        return ILabelValuePair;
+    }());
+    Manifold.ILabelValuePair = ILabelValuePair;
+})(Manifold || (Manifold = {}));
 
 
 
